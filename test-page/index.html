@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+  <head>
+    <meta charset="UTF-8">
+    <title>Reading Marker 手動測試頁</title>
+    <style>
+      body { max-width: 720px; margin: 40px auto; padding: 0 20px; font-family: system-ui, sans-serif; line-height: 1.8; }
+    </style>
+    <script>
+      // chrome.* mock backed by localStorage — lets the content script run as a
+      // plain page script for manual/automated testing without installing.
+      const mockData = JSON.parse(localStorage.getItem("__rmMock") || "{}");
+      const persist = () => localStorage.setItem("__rmMock", JSON.stringify(mockData));
+      window.chrome = {
+        storage: {
+          local: {
+            async get(key) { return typeof key === "string" ? { [key]: mockData[key] } : { ...mockData }; },
+            async set(entries) { Object.assign(mockData, entries); persist(); },
+            async remove(key) { delete mockData[key]; persist(); },
+          },
+          onChanged: { addListener(fn) { window.__rmSettingsListener = fn; } },
+        },
+        runtime: { onMessage: { addListener(fn) { window.__rmOnMessage = fn; } } },
+      };
+    </script>
+  </head>
+  <body>
+    <h1>測試文章：低價策略五十年</h1>
+    <p>第一段。這家公司憑藉低價定位與接近製造業的標準化流程，在全球開出上千家門市，成為年營收超過 2,500 億日圓的跨國餐飲集團。</p>
+    <h2>第一章：商業模式</h2>
+    <p>商業模式的核心是垂直整合。公司從農場到中央廚房到門市全部自營，把每一個環節的成本都壓到最低，並以規模攤提固定成本。</p>
+    <p>值得注意的是，低價並不等於低品質。公司在食材採購上維持嚴格標準，用製程創新而非偷工減料來降低成本。</p>
+    <h2>第二章：財務結構</h2>
+    <h3>2.1 毛利率分析</h3>
+    <p>毛利率長期維持在六成以上，高於同業平均。關鍵在於自有供應鏈壓低了食材成本佔比。</p>
+    <h3>2.2 資本支出</h3>
+    <p>重資產策略需要大量資本支出，但折舊攤提完成後，門市成為長期的現金牛。</p>
+    <h2>結論</h2>
+    <p>低價策略的本質是成本結構的重新設計，而非單純的犧牲利潤。這一句是關鍵論點。後文補充說明整體展望。</p>
+    <script src="../src/anchor.js"></script>
+    <script src="../src/util.js"></script>
+    <script src="../src/content.js"></script>
+  </body>
+</html>
