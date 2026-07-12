@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+  <head>
+    <meta charset="UTF-8">
+    <title>Reading Marker 內層捲動測試頁</title>
+    <style>
+      html, body { height: 100%; margin: 0; overflow: hidden; }
+      body { font-family: system-ui, sans-serif; }
+      /* Fixed site header OVERLAYS the content (fiisual-style): a heading
+         parked at the container top hides behind it without correction. */
+      .site-header { position: fixed; top: 0; left: 0; right: 0; z-index: 10; height: 120px; background: rgba(16, 19, 28, .96); color: #fff; display: grid; place-items: center; }
+      .app { display: flex; height: 100%; }
+      .scroller { padding-top: 140px; }
+      .recommended { border-top: 1px solid #e2e4ee; margin-top: 48px; padding-top: 16px; }
+      .sidebar { width: 200px; background: #1e2433; color: #fff; padding: 20px; flex: none; }
+      .scroller { flex: 1; overflow-y: auto; padding: 32px 48px; line-height: 1.8; }
+      .scroller section { max-width: 680px; margin: 0 auto; }
+      .lazy-block { background: #f3f4f8; border-radius: 8px; margin: 16px 0; height: 40px; transition: none; display: grid; place-items: center; color: #8a91a3; }
+    </style>
+    <script>
+      const mockData = JSON.parse(localStorage.getItem("__rmMock2") || "{}");
+      const persist = () => localStorage.setItem("__rmMock2", JSON.stringify(mockData));
+      window.chrome = {
+        storage: {
+          local: {
+            async get(key) { return typeof key === "string" ? { [key]: mockData[key] } : { ...mockData }; },
+            async set(entries) { Object.assign(mockData, entries); persist(); },
+            async remove(key) { delete mockData[key]; persist(); },
+          },
+          onChanged: { addListener(fn) { window.__rmSettingsListener = fn; } },
+        },
+        runtime: { onMessage: { addListener(fn) { window.__rmOnMessage = fn; } } },
+      };
+    </script>
+  </head>
+  <body>
+    <header class="site-header">固定站頭（120px）</header>
+    <div class="app">
+      <nav class="sidebar">側欄（模擬 SPA 版型：document 不捲動，內層容器才捲動）</nav>
+      <main class="scroller" id="scroller">
+        <article>
+          <h1>內層捲動測試：曼報 Pro 版型</h1>
+          <p>這個頁面的 html/body 是 overflow hidden，捲動發生在 .scroller 容器，模擬會員站/SPA 常見版型。</p>
+          <div class="lazy-block" data-lazy>lazy 內容（進入視窗後會長高，模擬圖片載入位移）</div>
+          <h2>第一章</h2>
+          <p>第一章內容。低價策略的本質是成本結構的重新設計。這裡放一些可以畫記的文字內容。</p>
+          <div class="lazy-block" data-lazy>lazy 內容</div>
+          <p>更多內容更多內容更多內容更多內容更多內容更多內容更多內容更多內容更多內容。</p>
+          <h2>第二章</h2>
+          <p>第二章內容。垂直整合讓公司把每個環節的成本壓到最低。</p>
+          <div class="lazy-block" data-lazy>lazy 內容</div>
+          <p>更多內容更多內容更多內容更多內容更多內容更多內容更多內容更多內容更多內容。</p>
+          <h3>2.1 小節</h3>
+          <p>小節內容小節內容小節內容小節內容小節內容。</p>
+          <div class="lazy-block" data-lazy>lazy 內容</div>
+          <h2>第三章</h2>
+          <p>第三章內容。標準化帶來的好處不只是速度。</p>
+          <div class="lazy-block" data-lazy>lazy 內容</div>
+          <p>更多內容更多內容更多內容更多內容更多內容更多內容更多內容更多內容更多內容。</p>
+          <h2>第四章</h2>
+          <p>第四章內容。品牌承諾足夠清楚，促銷就不需要頻繁改變。</p>
+          <div class="lazy-block" data-lazy>lazy 內容</div>
+          <h2>結論</h2>
+          <p>結論：把降價能力變成組織能力。這一句是關鍵論點。</p>
+        </article>
+        <aside class="recommended">
+          <h3>推薦文章：不該出現在目錄</h3>
+          <h3>另一篇推薦：也不該出現</h3>
+        </aside>
+      </main>
+    </div>
+    <script>
+      // Simulate lazy images: each block grows 40px → 360px shortly after
+      // first entering the viewport, shifting layout below it.
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting || entry.target.dataset.grown) return;
+          entry.target.dataset.grown = "1";
+          setTimeout(() => { entry.target.style.height = "360px"; }, 250);
+        });
+      }, { root: document.querySelector("#scroller") });
+      document.querySelectorAll("[data-lazy]").forEach((el) => io.observe(el));
+    </script>
+    <script src="../src/anchor.js"></script>
+    <script src="../src/util.js"></script>
+    <script src="../src/content.js"></script>
+  </body>
+</html>

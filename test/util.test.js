@@ -4,6 +4,7 @@ const test = require("node:test");
 const {
   DEFAULT_SETTINGS,
   buildExportMarkdown,
+  documentScrollHeight,
   hexToRgba,
   mergeSettings,
   pageKey,
@@ -115,4 +116,16 @@ test("scrollEdgeTarget returns clamped top and bottom scroll targets", () => {
   assert.equal(scrollEdgeTarget("top", 3000, 800), 0);
   assert.equal(scrollEdgeTarget("bottom", 3000, 800), 2200);
   assert.equal(scrollEdgeTarget("bottom", 700, 800), 0);
+});
+
+test("documentScrollHeight uses the largest available document height", () => {
+  assert.equal(documentScrollHeight({
+    documentElement: { scrollHeight: 900, offsetHeight: 950, clientHeight: 800 },
+    body: { scrollHeight: 2400, offsetHeight: 2300, clientHeight: 810 },
+  }), 2400);
+  assert.equal(documentScrollHeight({
+    documentElement: { scrollHeight: 1200 },
+    body: null,
+  }), 1200);
+  assert.equal(documentScrollHeight({}), 0);
 });

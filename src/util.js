@@ -45,6 +45,17 @@
     return Math.max(0, (Number(scrollHeight) || 0) - (Number(viewportHeight) || 0));
   }
 
+  function documentScrollHeight({ documentElement, body } = {}) {
+    return Math.max(
+      Number(documentElement?.scrollHeight) || 0,
+      Number(documentElement?.offsetHeight) || 0,
+      Number(documentElement?.clientHeight) || 0,
+      Number(body?.scrollHeight) || 0,
+      Number(body?.offsetHeight) || 0,
+      Number(body?.clientHeight) || 0,
+    );
+  }
+
   function pageKey(href) {
     try {
       const url = new URL(String(href));
@@ -112,5 +123,5 @@
     return lines.join("\n");
   }
 
-  return { DEFAULT_SETTINGS, activeHeadingIndex, buildExportMarkdown, hexToRgba, mergeSettings, pageKey, scrollButtonsVisible, scrollEdgeTarget };
+  return { DEFAULT_SETTINGS, activeHeadingIndex, buildExportMarkdown, documentScrollHeight, hexToRgba, mergeSettings, pageKey, scrollButtonsVisible, scrollEdgeTarget };
 }));

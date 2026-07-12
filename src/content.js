@@ -102,22 +102,43 @@
         border: 1px solid #d8dae6; border-radius: 12px; background: #fff; color: #323a52;
         box-shadow: 0 8px 24px rgba(16,24,40,.18); overflow: hidden;
       }
+      .toc-panel { width: 360px; max-height: min(72vh, 560px); }
       .panel-head {
         display: flex; align-items: center; justify-content: space-between; padding: 10px 14px;
         border-bottom: 1px solid #ecedf4; color: #8a91a3; font-size: 11px; font-weight: 700; letter-spacing: .1em;
       }
+      .panel-title { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
+      .panel-count {
+        display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 6px;
+        border-radius: 999px; background: #eef0ff; color: ${ACCENT}; font-size: 10px; letter-spacing: 0;
+        font-variant-numeric: tabular-nums;
+      }
       .panel-close { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 6px; background: none; color: #8a91a3; }
       .panel-close:hover { background: #f4f5fa; color: #323a52; }
-      .panel-body { display: flex; flex-direction: column; gap: 3px; padding: 8px; overflow-y: auto; }
+      .panel-body { display: flex; flex-direction: column; gap: 3px; padding: 8px; overflow-y: auto; overscroll-behavior: contain; }
+      .panel-body::-webkit-scrollbar { width: 8px; }
+      .panel-body::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 999px; background: #c8ccd8; background-clip: content-box; }
 
       .toc-item {
-        display: block; width: 100%; border: 0; border-radius: 8px; padding: 6px 10px; background: none;
-        text-align: left; font-size: 13px; line-height: 1.4; color: inherit;
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        display: grid; grid-template-columns: 24px minmax(0, 1fr); align-items: start; gap: 8px;
+        width: 100%; border: 0; border-radius: 9px; padding: 7px 10px; background: none;
+        text-align: left; font-size: 12.5px; line-height: 1.45; color: inherit;
       }
       .toc-item:hover { background: #f4f5fa; }
-      .toc-item.active { background: #edeeff; color: ${ACCENT}; font-weight: 600; }
-      .toc-l2 { padding-left: 22px; } .toc-l3 { padding-left: 34px; font-size: 12.5px; color: #8a91a3; } .toc-l4 { padding-left: 46px; font-size: 12px; color: #8a91a3; }
+      .toc-item.active { background: #edeeff; color: ${ACCENT}; font-weight: 650; }
+      .toc-level {
+        display: inline-grid; place-items: center; width: 22px; height: 18px; margin-top: 1px;
+        border-radius: 6px; background: #f1f3f8; color: #8a91a3; font-size: 10px; font-weight: 700;
+        letter-spacing: 0; font-variant-numeric: tabular-nums;
+      }
+      .toc-text {
+        display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+        min-width: 0; overflow: hidden;
+      }
+      .toc-l1 { padding-left: 8px; }
+      .toc-l2 { padding-left: 18px; }
+      .toc-l3 { padding-left: 30px; color: #8a91a3; }
+      .toc-l4 { padding-left: 42px; color: #8a91a3; }
 
       .note-item { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border: 0; border-radius: 8px; background: none; text-align: left; color: inherit; }
       .note-item:hover { background: #f4f5fa; }
@@ -142,6 +163,9 @@
         .panel-head { border-bottom-color: #2b2e39; }
         .panel-close:hover, .toc-item:hover, .note-item:hover { background: #23262f; color: #c7cbd9; }
         .toc-item.active { background: #262844; color: #8b8ef5; }
+        .toc-level { background: #252936; color: #8f96aa; }
+        .panel-count { background: #262844; color: #a5a7ff; }
+        .panel-body::-webkit-scrollbar-thumb { background-color: #4b5164; }
         .swatch.active { box-shadow: 0 0 0 2px #1c1e27, 0 0 0 4px #8b8ef5; }
         .note-orphan { background: #2c2413; color: #f0b357; }
         .divider { background: #3a3e4c; }
@@ -162,7 +186,7 @@
       <div class="panel-body notes-body"></div>
     </section>
     <section class="panel toc-panel" hidden>
-      <div class="panel-head"><span>目錄</span><button class="panel-close" data-act="close-toc" type="button" aria-label="關閉">✕</button></div>
+      <div class="panel-head"><span class="panel-title">目錄 <span class="panel-count toc-count">0</span></span><button class="panel-close" data-act="close-toc" type="button" aria-label="關閉">✕</button></div>
       <div class="panel-body toc-body"></div>
     </section>
     <div class="fabs">
@@ -194,6 +218,7 @@
     notesBody: shadow.querySelector(".notes-body"),
     tocPanel: shadow.querySelector(".toc-panel"),
     tocBody: shadow.querySelector(".toc-body"),
+    tocCount: shadow.querySelector(".toc-count"),
     notesFab: shadow.querySelector(".notes-fab"),
     notesCount: shadow.querySelector(".fab-count"),
     tocFab: shadow.querySelector(".toc-fab"),
@@ -527,18 +552,61 @@
     ui.notesFab.setAttribute("aria-expanded", "true");
   }
 
-  // Smooth scroll with an instant fallback: some environments silently ignore
-  // smooth scrolling; if nothing moved shortly after, jump directly.
+  // Smooth scroll that self-corrects. Two real-world failure modes:
+  // smooth scrolling can be silently ignored (hidden tabs), and lazy-loaded
+  // content above the target can shift layout mid-scroll so the first jump
+  // lands in the wrong place. After scrolling, re-check where the element
+  // actually rests and nudge (instantly) until it settles, max 3 rounds.
+  // Fixed/sticky bars overlaying the content top (site navbars) would cut
+  // off a heading parked at the container's top edge. Measure the lowest
+  // overlay bottom at the content top so landings sit just below it.
+  function stickyObstructionBottom() {
+    const base = containerViewportTop();
+    const x = Math.min(window.innerWidth - 8, Math.max(8, window.innerWidth / 2));
+    let bottom = base;
+    for (const element of document.elementsFromPoint(x, base + 4)) {
+      if (element === host || host.contains(element)) continue;
+      const style = getComputedStyle(element);
+      if (style.position !== "fixed" && style.position !== "sticky") continue;
+      const rect = element.getBoundingClientRect();
+      // Ignore near-full-screen fixed layers (overlays/backdrops), keep bars.
+      if (rect.height <= window.innerHeight * 0.4 && rect.bottom > bottom) bottom = rect.bottom;
+    }
+    return bottom;
+  }
+
+  function expectedTop(element, block) {
+    const base = stickyObstructionBottom() + 8;
+    if (block !== "center") return base;
+    return Math.max(base, (window.innerHeight - element.getBoundingClientRect().height) / 2);
+  }
+
+  function settleScroll(element, block, attempt = 0) {
+    if (attempt >= 3) return;
+    let checked = false;
+    const check = () => {
+      if (checked) return;
+      checked = true;
+      if (!element.isConnected) return;
+      const delta = element.getBoundingClientRect().top - expectedTop(element, block);
+      if (Math.abs(delta) <= 24) return;
+      // Precise correction: scroll the container by the exact offset so the
+      // heading clears sticky headers instead of hiding behind them.
+      const container = scrollContainer || findScrollContainer();
+      if (isDocumentContainer(container)) window.scrollBy(0, delta);
+      else container.scrollTop += delta;
+      settleScroll(element, block, attempt + 1);
+    };
+    // scrollend covers smooth scrolls of the window AND inner containers;
+    // the timeout covers environments where no scroll ever happens.
+    document.addEventListener("scrollend", () => setTimeout(check, 120), { once: true, capture: true });
+    setTimeout(check, 900);
+  }
+
   function scrollToElement(element) {
-    const before = window.scrollY;
-    const alreadyThere = Math.abs(element.getBoundingClientRect().top) < 8;
-    element.scrollIntoView({ behavior: "smooth", block: element.tagName === "MARK" ? "center" : "start" });
-    if (alreadyThere) return;
-    setTimeout(() => {
-      if (Math.abs(window.scrollY - before) < 2) {
-        element.scrollIntoView({ block: element.tagName === "MARK" ? "center" : "start" });
-      }
-    }, 250);
+    const block = element.tagName === "MARK" ? "center" : "start";
+    element.scrollIntoView({ behavior: "smooth", block });
+    settleScroll(element, block);
   }
 
   function flashAnnotation(id) {
@@ -555,35 +623,86 @@
 
   // ---- toc ----
 
+  // Prefer headings inside the main article: recommended-article rails,
+  // sidebars and footers pollute the TOC on blog sites. Fall back to the
+  // whole document when no landmark with enough headings exists.
+  function pickHeadingRoot() {
+    const headingCount = (element) => element.querySelectorAll("h1, h2, h3, h4").length;
+    for (const selector of ["article", "main", "[role='main']"]) {
+      const candidates = [...document.querySelectorAll(selector)]
+        .filter((element) => !host.contains(element)
+          && !element.closest("aside, nav, footer")
+          && headingCount(element) >= 2)
+        .sort((a, b) => headingCount(b) - headingCount(a));
+      if (candidates.length) return candidates[0];
+    }
+    return document;
+  }
+
   function collectHeadings() {
-    return [...document.querySelectorAll("h1, h2, h3, h4")]
+    return [...pickHeadingRoot().querySelectorAll("h1, h2, h3, h4")]
       .filter((heading) => !host.contains(heading)
         && heading.textContent.trim()
         && heading.getClientRects().length > 0)
       .slice(0, 200);
   }
 
+  let tocSignature = "";
+
   function refreshTocUi() {
     state.tocHeadings = siteEnabled() && state.settings.tocEnabled ? collectHeadings() : [];
     const available = state.tocHeadings.length >= 2;
     ui.tocFab.hidden = !available;
+    ui.tocCount.textContent = String(state.tocHeadings.length);
     if (!available) {
+      tocSignature = "";
       closeTocPanel();
       return;
     }
+    // Mutation-heavy pages call this constantly; skip the innerHTML rebuild
+    // when the heading list is unchanged (fresh element refs still stored).
+    const signature = state.tocHeadings
+      .map((heading) => `${heading.tagName}:${heading.textContent.trim()}`)
+      .join("");
+    if (signature === tocSignature) {
+      updateActiveTocItem();
+      return;
+    }
+    tocSignature = signature;
     ui.tocBody.innerHTML = state.tocHeadings.map((heading, index) => {
       const level = Number(heading.tagName.slice(1));
-      return `<button class="toc-item toc-l${level}" type="button" data-toc-index="${index}" title="${escapeHtml(heading.textContent.trim())}">${escapeHtml(heading.textContent.trim())}</button>`;
+      const title = heading.textContent.trim();
+      return `<button class="toc-item toc-l${level}" type="button" data-toc-index="${index}" title="${escapeHtml(title)}"><span class="toc-level">H${level}</span><span class="toc-text">${escapeHtml(title)}</span></button>`;
     }).join("");
     updateActiveTocItem();
   }
 
   function updateActiveTocItem() {
     if (!state.tocHeadings.length) return;
-    const active = activeHeadingIndex(state.tocHeadings.map((heading) => heading.getBoundingClientRect().top));
+    // Anchor the reading line to the scroll container's top, not the
+    // viewport's: on sites with sticky headers the landed heading rests
+    // ~100px+ down and a viewport-based anchor highlights the previous one.
+    const active = activeHeadingIndex(
+      state.tocHeadings.map((heading) => heading.getBoundingClientRect().top),
+      stickyObstructionBottom() + 96,
+    );
+    host.dataset.spyActive = String(active);
     ui.tocBody.querySelectorAll(".toc-item").forEach((item) => {
-      item.classList.toggle("active", Number(item.dataset.tocIndex) === active);
+      const isActive = Number(item.dataset.tocIndex) === active;
+      item.classList.toggle("active", isActive);
+      if (isActive && state.tocOpen) item.scrollIntoView({ block: "nearest" });
     });
+  }
+
+  // Throttled timer instead of rAF: rAF freezes in hidden tabs, and a short
+  // delay batches the burst of scroll events during smooth scrolling anyway.
+  let spyTimer = null;
+  function scheduleSpyUpdate() {
+    if (spyTimer !== null || !state.tocHeadings.length) return;
+    spyTimer = setTimeout(() => {
+      spyTimer = null;
+      updateActiveTocItem();
+    }, 120);
   }
 
   function closeTocPanel() {
@@ -602,20 +721,79 @@
 
   // ---- scroll to top / bottom ----
 
-  function scrollWindowTo(top) {
-    const before = window.scrollY;
-    window.scrollTo({ top, behavior: "smooth" });
-    // Same fallback as scrollToElement: jump directly if smooth didn't move.
+  // Many sites (member areas, SPAs) keep the document itself unscrollable and
+  // scroll an inner container instead. Find the real scrolling element:
+  // the document if it scrolls, otherwise the largest scrollable box.
+  let scrollContainer = null;
+
+  function isDocumentContainer(container) {
+    return !container
+      || container === document.scrollingElement
+      || container === document.documentElement
+      || container === document.body;
+  }
+
+  function containerViewportTop() {
+    const container = scrollContainer || findScrollContainer();
+    return isDocumentContainer(container) ? 0 : Math.max(0, container.getBoundingClientRect().top);
+  }
+
+  // Bounded breadth-first search: main scroll containers live near the top
+  // of the tree; scanning every element (and forcing style/layout on each
+  // candidate) makes huge, busy pages jam the content script's event loop.
+  function findScrollContainer() {
+    const doc = document.scrollingElement || document.documentElement;
+    if (scrollButtonsVisible(doc.scrollHeight, doc.clientHeight)) return doc;
+    let best = doc;
+    let bestArea = 0;
+    const queue = [{ element: document.body, depth: 0 }];
+    while (queue.length) {
+      const { element, depth } = queue.shift();
+      if (element === host) continue;
+      if (scrollButtonsVisible(element.scrollHeight, element.clientHeight)) {
+        const overflowY = getComputedStyle(element).overflowY;
+        if (overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay") {
+          const rect = element.getBoundingClientRect();
+          const area = rect.width * rect.height;
+          if (area > bestArea) {
+            bestArea = area;
+            best = element;
+          }
+        }
+      }
+      if (depth < 6) {
+        for (const child of element.children) queue.push({ element: child, depth: depth + 1 });
+      }
+    }
+    return best;
+  }
+
+  function scrollContainerToEdge(edge) {
+    const container = scrollContainer || findScrollContainer();
+    const target = scrollEdgeTarget(edge, container.scrollHeight, container.clientHeight);
+    const before = container.scrollTop;
+    container.scrollTo({ top: target, behavior: "smooth" });
+    // Instant fallback when smooth scrolling is ignored.
     setTimeout(() => {
-      if (Math.abs(window.scrollY - before) < 2 && Math.abs(before - top) > 8) window.scrollTo(0, top);
+      if (Math.abs(container.scrollTop - before) < 2 && Math.abs(before - target) > 8) {
+        container.scrollTop = target;
+      }
     }, 250);
   }
 
   function refreshScrollFabs() {
+    scrollContainer = findScrollContainer();
     const show = siteEnabled()
-      && scrollButtonsVisible(document.documentElement.scrollHeight, window.innerHeight);
+      && scrollButtonsVisible(scrollContainer.scrollHeight, scrollContainer.clientHeight);
     ui.topFab.hidden = !show;
     ui.bottomFab.hidden = !show;
+  }
+
+  // One near-term and one late check (late content); more repeats just burn
+  // CPU on busy pages since every mutation batch re-triggers this anyway.
+  function refreshScrollFabsSoon() {
+    requestAnimationFrame(refreshScrollFabs);
+    setTimeout(refreshScrollFabs, 800);
   }
 
   // ---- enable / disable / refresh ----
@@ -669,10 +847,12 @@
     else if (state.tocOpen) closeTocPanel();
   });
 
-  window.addEventListener("scroll", () => {
+  // Capture-phase so inner scroll containers (not just the window) drive the
+  // TOC highlight and dismiss the selection bubble.
+  document.addEventListener("scroll", () => {
     hideBubble();
-    if (state.tocHeadings.length) requestAnimationFrame(updateActiveTocItem);
-  }, { passive: true });
+    scheduleSpyUpdate();
+  }, { capture: true, passive: true });
 
   ui.bubble.addEventListener("mousedown", (event) => event.preventDefault());
   ui.bubble.addEventListener("click", (event) => {
@@ -717,9 +897,11 @@
 
   ui.notesFab.addEventListener("click", () => (state.notesOpen ? closeNotesPanel() : openNotesPanel()));
   ui.tocFab.addEventListener("click", () => (state.tocOpen ? closeTocPanel() : openTocPanel()));
-  ui.topFab.addEventListener("click", () => scrollWindowTo(scrollEdgeTarget("top", document.documentElement.scrollHeight, window.innerHeight)));
-  ui.bottomFab.addEventListener("click", () => scrollWindowTo(scrollEdgeTarget("bottom", document.documentElement.scrollHeight, window.innerHeight)));
-  window.addEventListener("resize", refreshScrollFabs);
+  ui.topFab.addEventListener("click", () => scrollContainerToEdge("top"));
+  ui.bottomFab.addEventListener("click", () => scrollContainerToEdge("bottom"));
+  window.addEventListener("resize", refreshScrollFabsSoon);
+  window.addEventListener("load", refreshScrollFabsSoon);
+  document.addEventListener("readystatechange", refreshScrollFabsSoon);
   ui.notesPanel.addEventListener("click", (event) => {
     if (event.target.closest("[data-act='close-notes']")) {
       closeNotesPanel();
@@ -749,7 +931,7 @@
     mutationTimer = setTimeout(() => {
       applyMissingAnnotations();
       refreshTocUi();
-      refreshScrollFabs();
+      refreshScrollFabsSoon();
       if (state.notesOpen) renderNotesPanel();
     }, 800);
   });
@@ -816,5 +998,6 @@
     state.settings = mergeSettings(stored.settings);
     await loadAnnotations();
     refreshAll();
+    refreshScrollFabsSoon();
   })();
 })();
