@@ -57,13 +57,17 @@
     });
   }
 
-  function sendToTab(message) {
+  // A busy page can answer slowly (or never, on browser-internal pages);
+  // never let that block the popup — give up after the timeout.
+  function sendToTab(message, timeoutMs = 1500) {
     return new Promise((resolve) => {
       if (tabId === null) {
         resolve(null);
         return;
       }
+      const timer = setTimeout(() => resolve(null), timeoutMs);
       chrome.tabs.sendMessage(tabId, message, (response) => {
+        clearTimeout(timer);
         if (chrome.runtime.lastError) resolve(null);
         else resolve(response);
       });
@@ -87,7 +91,8 @@
   });
 
   el.exportMd.addEventListener("click", async () => {
-    const response = await sendToTab({ type: "rm-export" });
+    el.actionStatus.textContent = "匯出中…";
+    const response = await sendToTab({ type: "rm-export" }, 5000);
     if (!response?.ok) {
       el.actionStatus.textContent = "此頁面無法匯出（不支援的頁面）";
       return;
@@ -97,16 +102,25 @@
   });
 
   (async () => {
-    const stored = await chrome.storage.local.get("settings");
+    // Fetch settings and the active tab in parallel, render controls
+    // immediately, then fill in the page status once the tab answers —
+    // the popup must never wait on the page to become interactive.
+    const [stored, tabs] = await Promise.all([
+      chrome.storage.local.get("settings"),
+      chrome.tabs.query({ active: true, currentWindow: true }),
+    ]);
     settings = mergeSettings(stored.settings);
-
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const tab = tabs[0];
     tabId = tab?.id ?? null;
     try {
       hostname = tab?.url ? new URL(tab.url).hostname : "";
     } catch {
       hostname = "";
     }
+
+    renderToggles();
+    renderColors();
+    el.pageStatus.textContent = hostname || "此頁面不支援（瀏覽器內建頁）";
 
     const status = await sendToTab({ type: "rm-status" });
     if (status?.ok) {
@@ -117,8 +131,5 @@
         : "此頁面不支援（瀏覽器內建頁）";
       el.exportMd.disabled = true;
     }
-
-    renderToggles();
-    renderColors();
   })();
 })();
