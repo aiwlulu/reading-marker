@@ -34,6 +34,17 @@
     return Math.max(0, index);
   }
 
+  // Jump-to-top/bottom buttons only make sense when there is real distance
+  // to travel; short pages would just show dead buttons.
+  function scrollButtonsVisible(scrollHeight, viewportHeight, threshold = 200) {
+    return (Number(scrollHeight) || 0) - (Number(viewportHeight) || 0) > threshold;
+  }
+
+  function scrollEdgeTarget(edge, scrollHeight, viewportHeight) {
+    if (edge === "top") return 0;
+    return Math.max(0, (Number(scrollHeight) || 0) - (Number(viewportHeight) || 0));
+  }
+
   function pageKey(href) {
     try {
       const url = new URL(String(href));
@@ -101,5 +112,5 @@
     return lines.join("\n");
   }
 
-  return { DEFAULT_SETTINGS, activeHeadingIndex, buildExportMarkdown, hexToRgba, mergeSettings, pageKey };
+  return { DEFAULT_SETTINGS, activeHeadingIndex, buildExportMarkdown, hexToRgba, mergeSettings, pageKey, scrollButtonsVisible, scrollEdgeTarget };
 }));

@@ -100,3 +100,19 @@ test("activeHeadingIndex follows the last heading above the reading anchor", () 
   assert.equal(activeHeadingIndex([140, 320], 96), 0);
   assert.equal(activeHeadingIndex([], 96), -1);
 });
+
+const { scrollButtonsVisible, scrollEdgeTarget } = require("../src/util");
+
+test("scrollButtonsVisible only shows on pages that scroll meaningfully", () => {
+  assert.equal(scrollButtonsVisible(3000, 800), true);
+  assert.equal(scrollButtonsVisible(835, 828), false);   // 7px of scroll → noise
+  assert.equal(scrollButtonsVisible(800, 800), false);
+  assert.equal(scrollButtonsVisible(1001, 800, 200), true);
+  assert.equal(scrollButtonsVisible(1000, 800, 200), false);
+});
+
+test("scrollEdgeTarget returns clamped top and bottom scroll targets", () => {
+  assert.equal(scrollEdgeTarget("top", 3000, 800), 0);
+  assert.equal(scrollEdgeTarget("bottom", 3000, 800), 2200);
+  assert.equal(scrollEdgeTarget("bottom", 700, 800), 0);
+});
