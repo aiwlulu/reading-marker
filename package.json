@@ -1,0 +1,10 @@
+{
+  "name": "reading-marker",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Chrome extension: highlights, notes and TOC on any webpage",
+  "type": "commonjs",
+  "scripts": {
+    "test": "node --test --test-concurrency=1"
+  }
+}

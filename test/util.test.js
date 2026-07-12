@@ -1,0 +1,102 @@
+const assert = require("node:assert/strict");
+const test = require("node:test");
+
+const {
+  DEFAULT_SETTINGS,
+  buildExportMarkdown,
+  hexToRgba,
+  mergeSettings,
+  pageKey,
+} = require("../src/util");
+
+test("pageKey keeps origin/path/query and drops the hash", () => {
+  assert.equal(
+    pageKey("https://example.com/posts/a1?p=2#section-3"),
+    "https://example.com/posts/a1?p=2",
+  );
+  assert.equal(pageKey("https://example.com/posts/a1#x"), "https://example.com/posts/a1");
+});
+
+test("pageKey distinguishes different query strings", () => {
+  assert.notEqual(pageKey("https://a.com/read?id=1"), pageKey("https://a.com/read?id=2"));
+});
+
+test("pageKey falls back to the raw string on unparsable input", () => {
+  assert.equal(pageKey("not a url"), "not a url");
+});
+
+test("mergeSettings returns defaults when nothing is stored", () => {
+  const merged = mergeSettings(undefined);
+  assert.equal(merged.notesEnabled, true);
+  assert.equal(merged.tocEnabled, true);
+  assert.deepEqual(merged.disabledSites, []);
+  assert.equal(merged.colors.length, 4);
+  assert.deepEqual(merged.colors.map((c) => c.key), ["c1", "c2", "c3", "c4"]);
+});
+
+test("mergeSettings keeps stored values and repairs bad color entries", () => {
+  const merged = mergeSettings({
+    notesEnabled: false,
+    disabledSites: ["example.com"],
+    colors: [
+      { key: "c1", color: "#ff0000", label: "存疑" },
+      { key: "c2", color: "not-a-color", label: "" },
+    ],
+  });
+
+  assert.equal(merged.notesEnabled, false);
+  assert.equal(merged.tocEnabled, true);
+  assert.deepEqual(merged.disabledSites, ["example.com"]);
+  assert.equal(merged.colors.length, 4);
+  assert.deepEqual(merged.colors[0], { key: "c1", color: "#ff0000", label: "存疑" });
+  // Bad hex and empty label fall back to the default slot values.
+  assert.deepEqual(merged.colors[1], DEFAULT_SETTINGS.colors[1]);
+  assert.deepEqual(merged.colors[3], DEFAULT_SETTINGS.colors[3]);
+});
+
+test("hexToRgba converts hex to rgba with the given alpha", () => {
+  assert.equal(hexToRgba("#fde047", 0.45), "rgba(253, 224, 71, 0.45)");
+  assert.equal(hexToRgba("#F00", 1), "rgba(255, 0, 0, 1)");
+  // Invalid input degrades to a visible yellow rather than throwing.
+  assert.equal(hexToRgba("oops", 0.5), "rgba(253, 224, 71, 0.5)");
+});
+
+test("buildExportMarkdown lists annotations in order with color labels and notes", () => {
+  const markdown = buildExportMarkdown({
+    title: "測試文章",
+    url: "https://example.com/a",
+    exportedAt: "2026-07-12",
+    colors: DEFAULT_SETTINGS.colors,
+    annotations: [
+      { exact: "第一句重點", colorKey: "c1", note: "" },
+      { exact: "存疑的敘述", colorKey: "c2", note: "待確認出處\n第二行" },
+      { exact: "找不到的舊畫記", colorKey: "c3", note: "", orphan: true },
+    ],
+  });
+
+  assert.match(markdown, /^# 測試文章\n/);
+  assert.match(markdown, /\[https:\/\/example\.com\/a\]\(https:\/\/example\.com\/a\)/);
+  assert.match(markdown, /2026-07-12/);
+  assert.match(markdown, /- 【重點】「第一句重點」/);
+  assert.match(markdown, /- 【待確認】「存疑的敘述」\n {2}- 待確認出處\n {4}第二行/);
+  assert.match(markdown, /- 【想補充・原文已變動】「找不到的舊畫記」/);
+});
+
+test("buildExportMarkdown handles an empty annotation list", () => {
+  const markdown = buildExportMarkdown({
+    title: "空頁",
+    url: "https://example.com",
+    exportedAt: "2026-07-12",
+    colors: DEFAULT_SETTINGS.colors,
+    annotations: [],
+  });
+  assert.match(markdown, /尚無畫記/);
+});
+
+const { activeHeadingIndex } = require("../src/util");
+
+test("activeHeadingIndex follows the last heading above the reading anchor", () => {
+  assert.equal(activeHeadingIndex([-793, -496, 2, 65, 306, 547], 96), 3);
+  assert.equal(activeHeadingIndex([140, 320], 96), 0);
+  assert.equal(activeHeadingIndex([], 96), -1);
+});
