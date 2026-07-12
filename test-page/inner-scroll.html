@@ -18,6 +18,13 @@
       .lazy-block { background: #f3f4f8; border-radius: 8px; margin: 16px 0; height: 40px; transition: none; display: grid; place-items: center; color: #8a91a3; }
     </style>
     <script>
+      // Automation tabs are "hidden"; let tests control what the content
+      // script sees (default visible, override with ?vis=hidden).
+      window.__rmVisibility = new URLSearchParams(location.search).get("vis") || "visible";
+      Object.defineProperty(Document.prototype, "visibilityState", {
+        configurable: true,
+        get: () => window.__rmVisibility,
+      });
       const mockData = JSON.parse(localStorage.getItem("__rmMock2") || "{}");
       const persist = () => localStorage.setItem("__rmMock2", JSON.stringify(mockData));
       window.chrome = {

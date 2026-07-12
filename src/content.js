@@ -791,7 +791,9 @@
 
   // One near-term and one late check (late content); more repeats just burn
   // CPU on busy pages since every mutation batch re-triggers this anyway.
+  // Hidden tabs skip entirely — refreshAll runs when the tab is shown.
   function refreshScrollFabsSoon() {
+    if (document.visibilityState !== "visible") return;
     requestAnimationFrame(refreshScrollFabs);
     setTimeout(refreshScrollFabs, 800);
   }
@@ -923,23 +925,63 @@
     if (heading) scrollToElement(heading);
   });
 
+  // ---- visibility gating ----
+  // Background tabs do NO scan work: with many restored tabs, dozens of
+  // content scripts churning the CPU makes the whole browser (including the
+  // popup) feel sluggish. Hidden tabs only mark work as pending; everything
+  // runs on the first switch back to the tab.
+
+  let ready = false;
+  let uiInitialized = false;
+  let pendingHiddenRefresh = false;
+
+  function pageVisible() {
+    return document.visibilityState === "visible";
+  }
+
+  function ensureUiInitialized() {
+    if (!ready || uiInitialized) return;
+    uiInitialized = true;
+    refreshAll();
+  }
+
+  function runMutationRefresh() {
+    applyMissingAnnotations();
+    refreshTocUi();
+    refreshScrollFabsSoon();
+    if (state.notesOpen) renderNotesPanel();
+  }
+
   // Dynamic pages: re-apply lost marks and rebuild the TOC after DOM changes.
   let mutationTimer;
   const observer = new MutationObserver(() => {
     if (state.applying) return;
+    if (!pageVisible() || !uiInitialized) {
+      pendingHiddenRefresh = true;
+      return;
+    }
     clearTimeout(mutationTimer);
-    mutationTimer = setTimeout(() => {
-      applyMissingAnnotations();
-      refreshTocUi();
-      refreshScrollFabsSoon();
-      if (state.notesOpen) renderNotesPanel();
-    }, 800);
+    mutationTimer = setTimeout(runMutationRefresh, 800);
   });
   observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+
+  document.addEventListener("visibilitychange", () => {
+    if (!pageVisible()) return;
+    if (!uiInitialized) {
+      ensureUiInitialized();
+      pendingHiddenRefresh = false;
+      return;
+    }
+    if (pendingHiddenRefresh) {
+      pendingHiddenRefresh = false;
+      runMutationRefresh();
+    }
+  });
 
   // SPA navigation: same tab, new logical page → swap the storage bucket.
   let lastKey = pageKey(location.href);
   setInterval(async () => {
+    if (!uiInitialized) return;
     const currentKey = pageKey(location.href);
     if (currentKey === lastKey) return;
     lastKey = currentKey;
@@ -948,15 +990,18 @@
     hideBubble();
     unwrapAllMarks();
     await loadAnnotations();
-    refreshAll();
+    if (pageVisible()) refreshAll();
+    else pendingHiddenRefresh = true;
   }, 1200);
 
-  // Settings written by the popup take effect immediately.
+  // Settings written by the popup take effect immediately (when visible).
   chromeApi.storage.onChanged.addListener((changes, area) => {
     if (area !== "local" || !changes.settings) return;
     state.settings = mergeSettings(changes.settings.newValue);
     state.annotations = cleanAnnotations(state.annotations, colorKeys());
-    refreshAll();
+    if (!uiInitialized) return;
+    if (pageVisible()) refreshAll();
+    else pendingHiddenRefresh = true;
   });
 
   chromeApi.runtime?.onMessage?.addListener((message, sender, sendResponse) => {
@@ -981,9 +1026,9 @@
         markdown: buildExportMarkdown({
           title: document.title,
           url: location.href,
-          exportedAt: new Date().toISOString().slice(0, 10),
           colors: state.settings.colors,
           annotations: located.map((annotation) => ({ ...annotation, orphan: !annotation.position })),
+          includeLabels: state.settings.exportWithLabels === true,
         }),
       });
       return false;
@@ -997,7 +1042,12 @@
     const stored = await chromeApi.storage.local.get("settings");
     state.settings = mergeSettings(stored.settings);
     await loadAnnotations();
-    refreshAll();
-    refreshScrollFabsSoon();
+    ready = true;
+    // Hidden tabs (session restore, background-opened) stay dormant until
+    // first shown; the visibilitychange handler runs the deferred init.
+    if (pageVisible()) {
+      ensureUiInitialized();
+      refreshScrollFabsSoon();
+    }
   })();
 })();

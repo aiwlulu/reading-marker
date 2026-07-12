@@ -9,6 +9,11 @@
     <script>
       // chrome.* mock backed by localStorage — lets the content script run as a
       // plain page script for manual/automated testing without installing.
+      window.__rmVisibility = new URLSearchParams(location.search).get("vis") || "visible";
+      Object.defineProperty(Document.prototype, "visibilityState", {
+        configurable: true,
+        get: () => window.__rmVisibility,
+      });
       const mockData = JSON.parse(localStorage.getItem("__rmMock") || "{}");
       const persist = () => localStorage.setItem("__rmMock", JSON.stringify(mockData));
       window.chrome = {
