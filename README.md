@@ -15,6 +15,7 @@
 - **筆記**：Enter 送出、Shift+Enter 換行；點畫記可再編輯、換色、刪除
 - **筆記清單**：右下角浮動按鈕（有畫記時出現），點項目跳至原文
 - **目錄**：掃描頁面 h1–h4，右下角浮動按鈕開啟，支援捲動高亮
+- **快速跳轉**：右下角提供回到頂端、跳到最下方按鈕，長頁面才顯示
 - **popup 設定**：筆記／目錄各自開關、單一網站停用、四色槽自訂顏色與說明
 - **匯出**：一鍵複製本頁畫記與筆記為 Markdown
 
@@ -22,6 +23,32 @@
 
 ```bash
 npm test   # node --test：錨定引擎與純邏輯單元測試
+```
+
+### 手動測試頁
+
+從專案根目錄啟動靜態伺服器：
+
+```bash
+python3 -m http.server 8000
+```
+
+開啟：
+
+```text
+http://127.0.0.1:8000/test-page/
+```
+
+若看到 `OSError: [Errno 48] Address already in use`，代表 `8000` port 已被占用。可以先關掉原本的 server，或改用其他 port：
+
+```bash
+python3 -m http.server 8010
+```
+
+再開啟：
+
+```text
+http://127.0.0.1:8010/test-page/
 ```
 
 - `src/anchor.js`：text-quote 錨定引擎（純函式）
