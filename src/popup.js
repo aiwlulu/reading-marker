@@ -1,60 +1,62 @@
 // Popup: feature toggles, per-site switch, 4 color slots, Markdown export.
-// Settings are written to chrome.storage; content scripts react via onChanged.
+// Zero-wait rendering: the HTML is a complete static UI; settings are
+// reconciled synchronously from a localStorage cache, so first paint never
+// waits on chrome.storage or the (possibly busy) page. Anything uncertain
+// shows a loading state and fills in asynchronously.
 (() => {
   const { mergeSettings } = globalThis.ReadingMarker;
+  const CACHE_KEY = "rm-settings-cache";
 
   const el = {
     pageStatus: document.querySelector("#page-status"),
     notesEnabled: document.querySelector("#notes-enabled"),
     tocEnabled: document.querySelector("#toc-enabled"),
     siteEnabled: document.querySelector("#site-enabled"),
-    colorRows: document.querySelector("#color-rows"),
+    exportLabels: document.querySelector("#export-labels"),
+    colorRows: [...document.querySelectorAll("#color-rows .color-row")],
     exportMd: document.querySelector("#export-md"),
     actionStatus: document.querySelector("#action-status"),
   };
 
-  let settings = mergeSettings(null);
+  function readCache() {
+    try {
+      return JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
+    } catch {
+      return null;
+    }
+  }
+
+  function writeCache() {
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify(settings));
+    } catch {
+      // Cache is best-effort only.
+    }
+  }
+
+  let settings = mergeSettings(readCache());
   let hostname = "";
   let tabId = null;
 
   async function saveSettings() {
+    writeCache();
     await chrome.storage.local.set({ settings });
   }
 
-  function renderToggles() {
+  function renderSettings() {
     el.notesEnabled.checked = settings.notesEnabled;
     el.tocEnabled.checked = settings.tocEnabled;
-    el.siteEnabled.checked = Boolean(hostname) && !settings.disabledSites.includes(hostname);
-    el.siteEnabled.disabled = !hostname;
+    el.exportLabels.checked = settings.exportWithLabels;
+    el.colorRows.forEach((row, index) => {
+      const color = settings.colors[index];
+      row.querySelector('input[type="color"]').value = color.color;
+      row.querySelector('input[type="text"]').value = color.label;
+    });
   }
 
-  function renderColors() {
-    el.colorRows.innerHTML = "";
-    settings.colors.forEach((color, index) => {
-      const row = document.createElement("div");
-      row.className = "color-row";
-
-      const picker = document.createElement("input");
-      picker.type = "color";
-      picker.value = color.color;
-      picker.addEventListener("input", () => {
-        settings.colors[index].color = picker.value;
-        saveSettings();
-      });
-
-      const label = document.createElement("input");
-      label.type = "text";
-      label.value = color.label;
-      label.maxLength = 12;
-      label.placeholder = "說明";
-      label.addEventListener("input", () => {
-        settings.colors[index].label = label.value.trim() || settings.colors[index].label;
-        saveSettings();
-      });
-
-      row.append(picker, label);
-      el.colorRows.append(row);
-    });
+  function renderSiteToggle() {
+    el.siteEnabled.checked = Boolean(hostname) && !settings.disabledSites.includes(hostname);
+    el.siteEnabled.disabled = !hostname;
   }
 
   // A busy page can answer slowly (or never, on browser-internal pages);
@@ -82,6 +84,10 @@
     settings.tocEnabled = el.tocEnabled.checked;
     saveSettings();
   });
+  el.exportLabels.addEventListener("change", () => {
+    settings.exportWithLabels = el.exportLabels.checked;
+    saveSettings();
+  });
   el.siteEnabled.addEventListener("change", () => {
     if (!hostname) return;
     settings.disabledSites = el.siteEnabled.checked
@@ -89,10 +95,22 @@
       : [...new Set([...settings.disabledSites, hostname])];
     saveSettings();
   });
+  el.colorRows.forEach((row, index) => {
+    row.querySelector('input[type="color"]').addEventListener("input", (event) => {
+      settings.colors[index].color = event.target.value;
+      saveSettings();
+    });
+    row.querySelector('input[type="text"]').addEventListener("input", (event) => {
+      settings.colors[index].label = event.target.value.trim() || settings.colors[index].label;
+      saveSettings();
+    });
+  });
 
   el.exportMd.addEventListener("click", async () => {
     el.actionStatus.textContent = "匯出中…";
+    el.actionStatus.classList.add("loading");
     const response = await sendToTab({ type: "rm-export" }, 5000);
+    el.actionStatus.classList.remove("loading");
     if (!response?.ok) {
       el.actionStatus.textContent = "此頁面無法匯出（不支援的頁面）";
       return;
@@ -101,28 +119,27 @@
     el.actionStatus.textContent = "已複製 Markdown 到剪貼簿 ✓";
   });
 
+  // Paint immediately from the cache; everything below is reconciliation.
+  renderSettings();
+
   (async () => {
-    // Fetch settings and the active tab in parallel, render controls
-    // immediately, then fill in the page status once the tab answers —
-    // the popup must never wait on the page to become interactive.
-    const [stored, tabs] = await Promise.all([
-      chrome.storage.local.get("settings"),
-      chrome.tabs.query({ active: true, currentWindow: true }),
-    ]);
+    const stored = await chrome.storage.local.get("settings");
     settings = mergeSettings(stored.settings);
-    const tab = tabs[0];
+    writeCache();
+    renderSettings();
+
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     tabId = tab?.id ?? null;
     try {
       hostname = tab?.url ? new URL(tab.url).hostname : "";
     } catch {
       hostname = "";
     }
-
-    renderToggles();
-    renderColors();
+    renderSiteToggle();
     el.pageStatus.textContent = hostname || "此頁面不支援（瀏覽器內建頁）";
 
     const status = await sendToTab({ type: "rm-status" });
+    el.pageStatus.classList.remove("loading");
     if (status?.ok) {
       el.pageStatus.textContent = `${status.hostname}・本頁 ${status.count} 筆畫記`;
     } else {

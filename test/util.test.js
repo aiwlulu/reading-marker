@@ -62,25 +62,49 @@ test("hexToRgba converts hex to rgba with the given alpha", () => {
   assert.equal(hexToRgba("oops", 0.5), "rgba(253, 224, 71, 0.5)");
 });
 
-test("buildExportMarkdown lists annotations in order with color labels and notes", () => {
+const EXPORT_ANNOTATIONS = [
+  { exact: "第一句重點", colorKey: "c1", note: "" },
+  { exact: "存疑的敘述", colorKey: "c2", note: "待確認出處\n第二行" },
+  { exact: "找不到的舊畫記", colorKey: "c3", note: "", orphan: true },
+];
+
+test("buildExportMarkdown uses a bold title, autolink URL and unquoted plain lines by default", () => {
   const markdown = buildExportMarkdown({
     title: "測試文章",
     url: "https://example.com/a",
-    exportedAt: "2026-07-12",
     colors: DEFAULT_SETTINGS.colors,
-    annotations: [
-      { exact: "第一句重點", colorKey: "c1", note: "" },
-      { exact: "存疑的敘述", colorKey: "c2", note: "待確認出處\n第二行" },
-      { exact: "找不到的舊畫記", colorKey: "c3", note: "", orphan: true },
-    ],
+    annotations: EXPORT_ANNOTATIONS,
   });
 
-  assert.match(markdown, /^# 測試文章\n/);
-  assert.match(markdown, /\[https:\/\/example\.com\/a\]\(https:\/\/example\.com\/a\)/);
-  assert.match(markdown, /2026-07-12/);
-  assert.match(markdown, /- 【重點】「第一句重點」/);
-  assert.match(markdown, /- 【待確認】「存疑的敘述」\n {2}- 待確認出處\n {4}第二行/);
-  assert.match(markdown, /- 【想補充・原文已變動】「找不到的舊畫記」/);
+  assert.match(markdown, /^\*\*測試文章\*\*\n\n<https:\/\/example\.com\/a>\n/);
+  assert.doesNotMatch(markdown, /^#/m);
+  assert.doesNotMatch(markdown, /\[https:/);
+  assert.doesNotMatch(markdown, /匯出於/);
+  assert.doesNotMatch(markdown, /【/);
+  assert.doesNotMatch(markdown, /「|」/);
+  assert.match(markdown, /- 第一句重點\n/);
+  assert.match(markdown, /- 存疑的敘述\n {2}- 待確認出處\n {4}第二行/);
+  assert.match(markdown, /- 找不到的舊畫記（原文已變動）/);
+});
+
+test("buildExportMarkdown includes color labels when asked", () => {
+  const markdown = buildExportMarkdown({
+    title: "測試文章",
+    url: "https://example.com/a",
+    colors: DEFAULT_SETTINGS.colors,
+    annotations: EXPORT_ANNOTATIONS,
+    includeLabels: true,
+  });
+
+  assert.match(markdown, /- 【重點】第一句重點\n/);
+  assert.match(markdown, /- 【待確認】存疑的敘述\n {2}- 待確認出處\n {4}第二行/);
+  assert.match(markdown, /- 【想補充・原文已變動】找不到的舊畫記/);
+});
+
+test("mergeSettings keeps exportWithLabels off by default and preserves an explicit true", () => {
+  assert.equal(mergeSettings(undefined).exportWithLabels, false);
+  assert.equal(mergeSettings({ exportWithLabels: true }).exportWithLabels, true);
+  assert.equal(mergeSettings({ exportWithLabels: "yes" }).exportWithLabels, false);
 });
 
 test("buildExportMarkdown handles an empty annotation list", () => {

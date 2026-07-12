@@ -33,6 +33,8 @@
       }
       button.primary:disabled { opacity: .5; cursor: default; }
       .status { color: #8a91a3; font-size: 12px; min-height: 16px; }
+      .loading { animation: rm-pulse 1.1s ease-in-out infinite; }
+      @keyframes rm-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
       @media (prefers-color-scheme: dark) {
         body { background: #1c1e27; color: #c7cbd9; }
         .row, .colors, .actions { border-top-color: #2b2e39; }
@@ -43,21 +45,32 @@
   </head>
   <body>
     <h1>Reading Marker</h1>
-    <p class="sub" id="page-status">讀取中…</p>
+    <p class="sub loading" id="page-status">讀取中…</p>
 
     <div class="row">
-      <label><input type="checkbox" id="notes-enabled">螢光筆與筆記</label>
+      <label><input type="checkbox" id="notes-enabled" checked>螢光筆與筆記</label>
     </div>
     <div class="row">
-      <label><input type="checkbox" id="toc-enabled">目錄（TOC）</label>
+      <label><input type="checkbox" id="toc-enabled" checked>目錄（TOC）</label>
     </div>
     <div class="row">
-      <label><input type="checkbox" id="site-enabled">在此網站啟用</label>
+      <label><input type="checkbox" id="site-enabled" checked>在此網站啟用</label>
     </div>
 
+    <!-- Static rows: the popup is fully laid out straight from HTML; JS only
+         reconciles values, so first paint never waits on storage. -->
     <div class="colors">
       <h2>顏色與說明</h2>
-      <div id="color-rows"></div>
+      <div id="color-rows">
+        <div class="color-row" data-index="0"><input type="color" value="#fde047"><input type="text" value="重點" maxlength="12" placeholder="說明"></div>
+        <div class="color-row" data-index="1"><input type="color" value="#fca5a5"><input type="text" value="待確認" maxlength="12" placeholder="說明"></div>
+        <div class="color-row" data-index="2"><input type="color" value="#93c5fd"><input type="text" value="想補充" maxlength="12" placeholder="說明"></div>
+        <div class="color-row" data-index="3"><input type="color" value="#86efac"><input type="text" value="已確認" maxlength="12" placeholder="說明"></div>
+      </div>
+    </div>
+
+    <div class="row">
+      <label><input type="checkbox" id="export-labels">匯出時附顏色說明</label>
     </div>
 
     <div class="actions">
@@ -65,7 +78,6 @@
       <div class="status" id="action-status"></div>
     </div>
 
-    <script src="anchor.js"></script>
     <script src="util.js"></script>
     <script src="popup.js"></script>
   </body>

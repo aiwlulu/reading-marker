@@ -73,6 +73,7 @@
     return {
       notesEnabled: source.notesEnabled !== false,
       tocEnabled: source.tocEnabled !== false,
+      exportWithLabels: source.exportWithLabels === true,
       disabledSites: Array.isArray(source.disabledSites)
         ? source.disabledSites.map((site) => String(site)).filter(Boolean)
         : [],
@@ -95,12 +96,15 @@
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 
-  function buildExportMarkdown({ title, url, exportedAt, colors, annotations }) {
+  // Bold title (the export is a digest, not a document of its own), <url>
+  // autolink, unquoted excerpt lines (quotes read oddly around English);
+  // color labels (【重點】…) are opt-in via includeLabels.
+  function buildExportMarkdown({ title, url, colors, annotations, includeLabels = false }) {
     const labelOf = (colorKey) => (colors.find((color) => color.key === colorKey) || colors[0]).label;
     const lines = [
-      `# ${String(title || "未命名頁面").trim() || "未命名頁面"}`,
+      `**${String(title || "未命名頁面").trim() || "未命名頁面"}**`,
       "",
-      `[${url}](${url})・匯出於 ${exportedAt}`,
+      `<${url}>`,
       "",
     ];
 
@@ -110,8 +114,12 @@
     }
 
     annotations.forEach((annotation) => {
-      const label = `${labelOf(annotation.colorKey)}${annotation.orphan ? "・原文已變動" : ""}`;
-      lines.push(`- 【${label}】「${annotation.exact}」`);
+      if (includeLabels) {
+        const label = `${labelOf(annotation.colorKey)}${annotation.orphan ? "・原文已變動" : ""}`;
+        lines.push(`- 【${label}】${annotation.exact}`);
+      } else {
+        lines.push(`- ${annotation.exact}${annotation.orphan ? "（原文已變動）" : ""}`);
+      }
       const note = String(annotation.note || "").trim();
       if (note) {
         const [first, ...rest] = note.split("\n");
