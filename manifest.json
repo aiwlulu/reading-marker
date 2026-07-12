@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Reading Marker — 螢光筆・筆記・目錄",
+  "version": "0.1.0",
+  "description": "在任何網頁畫螢光筆、寫筆記、開目錄。畫記只存在本機，不需帳號。",
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": ["<all_urls>"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/anchor.js", "src/util.js", "src/content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Reading Marker",
+    "default_popup": "src/popup.html"
+  }
+}
