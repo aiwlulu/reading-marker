@@ -2,7 +2,9 @@
 // Marks live in the page DOM (inline-styled so site CSS can't break them);
 // all other UI lives in a closed-off shadow root to avoid style collisions.
 (() => {
-  if (window.__readingMarkerLoaded) return;
+  // DOM-based guard: a window flag can't stop double-injection across JS
+  // worlds (extension isolated world vs page scripts on the test page).
+  if (window.__readingMarkerLoaded || document.getElementById("reading-marker-host")) return;
   window.__readingMarkerLoaded = true;
 
   const chromeApi = globalThis.chrome;
@@ -17,6 +19,8 @@
     makeAnnotationAnchor,
     mergeSettings,
     pageKey,
+    scrollButtonsVisible,
+    scrollEdgeTarget,
   } = globalThis.ReadingMarker;
 
   const SKIP_TAGS = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEXTAREA", "IFRAME", "CANVAS", "SVG", "INPUT", "SELECT", "MARK"]);
@@ -169,6 +173,12 @@
       <button class="fab toc-fab" type="button" aria-expanded="false" title="目錄" hidden>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13"></path><path d="M8 12h13"></path><path d="M8 18h13"></path><path d="M3 6h.01"></path><path d="M3 12h.01"></path><path d="M3 18h.01"></path></svg>
       </button>
+      <button class="fab top-fab" type="button" title="回到頂端" aria-label="回到頂端" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h14"></path><path d="m18 13-6-6-6 6"></path><path d="M12 7v14"></path></svg>
+      </button>
+      <button class="fab bottom-fab" type="button" title="跳到最下方" aria-label="跳到最下方" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v14"></path><path d="m6 11 6 6 6-6"></path><path d="M5 21h14"></path></svg>
+      </button>
     </div>
     <div class="toast" hidden></div>
   `;
@@ -187,6 +197,8 @@
     notesFab: shadow.querySelector(".notes-fab"),
     notesCount: shadow.querySelector(".fab-count"),
     tocFab: shadow.querySelector(".toc-fab"),
+    topFab: shadow.querySelector(".top-fab"),
+    bottomFab: shadow.querySelector(".bottom-fab"),
     toast: shadow.querySelector(".toast"),
   };
 
@@ -588,6 +600,24 @@
     ui.tocFab.setAttribute("aria-expanded", "true");
   }
 
+  // ---- scroll to top / bottom ----
+
+  function scrollWindowTo(top) {
+    const before = window.scrollY;
+    window.scrollTo({ top, behavior: "smooth" });
+    // Same fallback as scrollToElement: jump directly if smooth didn't move.
+    setTimeout(() => {
+      if (Math.abs(window.scrollY - before) < 2 && Math.abs(before - top) > 8) window.scrollTo(0, top);
+    }, 250);
+  }
+
+  function refreshScrollFabs() {
+    const show = siteEnabled()
+      && scrollButtonsVisible(document.documentElement.scrollHeight, window.innerHeight);
+    ui.topFab.hidden = !show;
+    ui.bottomFab.hidden = !show;
+  }
+
   // ---- enable / disable / refresh ----
 
   function refreshAll() {
@@ -604,6 +634,7 @@
     }
     refreshNotesUi();
     refreshTocUi();
+    refreshScrollFabs();
   }
 
   // ---- events ----
@@ -686,6 +717,9 @@
 
   ui.notesFab.addEventListener("click", () => (state.notesOpen ? closeNotesPanel() : openNotesPanel()));
   ui.tocFab.addEventListener("click", () => (state.tocOpen ? closeTocPanel() : openTocPanel()));
+  ui.topFab.addEventListener("click", () => scrollWindowTo(scrollEdgeTarget("top", document.documentElement.scrollHeight, window.innerHeight)));
+  ui.bottomFab.addEventListener("click", () => scrollWindowTo(scrollEdgeTarget("bottom", document.documentElement.scrollHeight, window.innerHeight)));
+  window.addEventListener("resize", refreshScrollFabs);
   ui.notesPanel.addEventListener("click", (event) => {
     if (event.target.closest("[data-act='close-notes']")) {
       closeNotesPanel();
@@ -715,6 +749,7 @@
     mutationTimer = setTimeout(() => {
       applyMissingAnnotations();
       refreshTocUi();
+      refreshScrollFabs();
       if (state.notesOpen) renderNotesPanel();
     }, 800);
   });
