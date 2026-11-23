@@ -5,6 +5,7 @@ const {
   DEFAULT_SETTINGS,
   buildExportMarkdown,
   documentScrollHeight,
+  exportAnnotationsForMarkdown,
   hexToRgba,
   mergeSettings,
   pageKey,
@@ -99,6 +100,18 @@ test("buildExportMarkdown includes color labels when asked", () => {
   assert.match(markdown, /- 【重點】第一句重點\n/);
   assert.match(markdown, /- 【待確認】存疑的敘述\n {2}- 待確認出處\n {4}第二行/);
   assert.match(markdown, /- 【想補充・原文已變動】找不到的舊畫記/);
+});
+
+test("exportAnnotationsForMarkdown preserves stored order without requiring DOM lookup", () => {
+  const exported = exportAnnotationsForMarkdown([
+    { exact: "第二段", colorKey: "c2", note: "B", position: { start: 20 }, orphan: true },
+    { exact: "第一段", colorKey: "c1", note: "", position: { start: 0 } },
+  ]);
+
+  assert.deepEqual(exported, [
+    { exact: "第二段", colorKey: "c2", note: "B" },
+    { exact: "第一段", colorKey: "c1", note: "" },
+  ]);
 });
 
 test("mergeSettings keeps exportWithLabels off by default and preserves an explicit true", () => {

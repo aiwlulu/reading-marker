@@ -37,6 +37,7 @@
   let settings = mergeSettings(readCache());
   let hostname = "";
   let tabId = null;
+  let activeTabPromise = null;
 
   async function saveSettings() {
     writeCache();
@@ -57,6 +58,24 @@
   function renderSiteToggle() {
     el.siteEnabled.checked = Boolean(hostname) && !settings.disabledSites.includes(hostname);
     el.siteEnabled.disabled = !hostname;
+  }
+
+  async function resolveActiveTab() {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    tabId = tab?.id ?? null;
+    const status = await sendToTab({ type: "rm-status" });
+    hostname = status?.hostname || "";
+    renderSiteToggle();
+    el.exportMd.disabled = !status?.ok;
+    el.pageStatus.textContent = status?.ok
+      ? `${hostname || "本機檔案"}・可匯出本頁筆記`
+      : "無法連接此頁。一般網頁可重新整理後再試。";
+    return tabId;
+  }
+
+  function ensureActiveTab() {
+    activeTabPromise ||= resolveActiveTab();
+    return activeTabPromise;
   }
 
   // A busy page can answer slowly (or never, on browser-internal pages);
@@ -109,14 +128,19 @@
   el.exportMd.addEventListener("click", async () => {
     el.actionStatus.textContent = "匯出中…";
     el.actionStatus.classList.add("loading");
+    await ensureActiveTab();
     const response = await sendToTab({ type: "rm-export" }, 5000);
     el.actionStatus.classList.remove("loading");
     if (!response?.ok) {
       el.actionStatus.textContent = "此頁面無法匯出（不支援的頁面）";
       return;
     }
-    await navigator.clipboard.writeText(response.markdown);
-    el.actionStatus.textContent = "已複製 Markdown 到剪貼簿 ✓";
+    try {
+      await navigator.clipboard.writeText(response.markdown);
+      el.actionStatus.textContent = "已複製 Markdown 到剪貼簿 ✓";
+    } catch {
+      el.actionStatus.textContent = "無法寫入剪貼簿，請重新開啟工具並再試一次。";
+    }
   });
 
   // Paint immediately from the cache; everything below is reconciliation.
@@ -128,25 +152,6 @@
     writeCache();
     renderSettings();
 
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    tabId = tab?.id ?? null;
-    try {
-      hostname = tab?.url ? new URL(tab.url).hostname : "";
-    } catch {
-      hostname = "";
-    }
-    renderSiteToggle();
-    el.pageStatus.textContent = hostname || "此頁面不支援（瀏覽器內建頁）";
-
-    const status = await sendToTab({ type: "rm-status" });
-    el.pageStatus.classList.remove("loading");
-    if (status?.ok) {
-      el.pageStatus.textContent = `${status.hostname}・本頁 ${status.count} 筆畫記`;
-    } else {
-      el.pageStatus.textContent = hostname
-        ? `${hostname}（請重新整理頁面後再試）`
-        : "此頁面不支援（瀏覽器內建頁）";
-      el.exportMd.disabled = true;
-    }
+    ensureActiveTab();
   })();
 })();

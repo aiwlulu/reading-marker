@@ -131,5 +131,13 @@
     return lines.join("\n");
   }
 
-  return { DEFAULT_SETTINGS, activeHeadingIndex, buildExportMarkdown, documentScrollHeight, hexToRgba, mergeSettings, pageKey, scrollButtonsVisible, scrollEdgeTarget };
+  function exportAnnotationsForMarkdown(annotations) {
+    return (Array.isArray(annotations) ? annotations : []).map((annotation) => ({
+      exact: String(annotation?.exact || ""),
+      colorKey: String(annotation?.colorKey || ""),
+      note: String(annotation?.note || ""),
+    })).filter((annotation) => annotation.exact.trim());
+  }
+
+  return { DEFAULT_SETTINGS, activeHeadingIndex, buildExportMarkdown, documentScrollHeight, exportAnnotationsForMarkdown, hexToRgba, mergeSettings, pageKey, scrollButtonsVisible, scrollEdgeTarget };
 }));

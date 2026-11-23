@@ -14,6 +14,7 @@
     activeHeadingIndex,
     buildExportMarkdown,
     cleanAnnotations,
+    exportAnnotationsForMarkdown,
     hexToRgba,
     locateAnnotation,
     makeAnnotationAnchor,
@@ -1015,19 +1016,13 @@
       return false;
     }
     if (message?.type === "rm-export") {
-      const text = buildTextIndex().text;
-      const located = state.annotations.map((annotation) => ({
-        ...annotation,
-        position: locateAnnotation(text, annotation),
-      }));
-      located.sort((a, b) => (a.position?.start ?? Infinity) - (b.position?.start ?? Infinity));
       sendResponse({
         ok: true,
         markdown: buildExportMarkdown({
           title: document.title,
           url: location.href,
           colors: state.settings.colors,
-          annotations: located.map((annotation) => ({ ...annotation, orphan: !annotation.position })),
+          annotations: exportAnnotationsForMarkdown(state.annotations),
           includeLabels: state.settings.exportWithLabels === true,
         }),
       });
