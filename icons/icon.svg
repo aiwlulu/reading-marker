@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- Source for icon48.png and icon128.png. The tile is 104px with 12px of clear space. -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7377f6"/>
+      <stop offset="1" stop-color="#3f37c9"/>
+    </linearGradient>
+    <linearGradient id="ink" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fef08a"/>
+      <stop offset="1" stop-color="#facc15"/>
+    </linearGradient>
+    <linearGradient id="barrel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#dfe3ff"/>
+    </linearGradient>
+    <filter id="lift" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="-1.5" dy="3" stdDeviation="2.5" flood-color="#1e1b6b" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <rect x="12" y="12" width="104" height="104" rx="26" fill="url(#tile)"/>
+  <!-- Soft light from the top left. -->
+  <path d="M38 12h52a26 26 0 0 1 26 26v8C92 26 52 22 12 44v-6a26 26 0 0 1 26-26z" fill="#fff" opacity="0.08"/>
+
+  <!-- Three lines of text; the middle one has just been highlighted. -->
+  <g fill="none" stroke-linecap="round">
+    <path d="M32 45h40" stroke="#fff" stroke-width="8" opacity="0.92"/>
+    <path d="M32 91h28" stroke="#fff" stroke-width="8" opacity="0.92"/>
+  </g>
+  <path d="M30 57h52l-6 22H24z" fill="url(#ink)" stroke="url(#ink)" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M35 68h30" fill="none" stroke="#3f37c9" stroke-width="7" stroke-linecap="round" opacity="0.85"/>
+
+  <!-- The marker, leaving the stroke and breaking out of the tile. -->
+  <g transform="translate(82 67) rotate(-42)" filter="url(#lift)">
+    <path d="M-1 -7 11 -9v18L-1 5z" fill="#facc15"/>
+    <path d="M11 -11h7v22h-7z" fill="#312e81"/>
+    <rect x="18" y="-12" width="30" height="24" rx="7" fill="url(#barrel)"/>
+    <path d="M18 -12h7v24h-7z" fill="url(#barrel)"/>
+    <rect x="38" y="-12" width="4" height="24" fill="#facc15"/>
+  </g>
+</svg>

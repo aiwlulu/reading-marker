@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Source for icon16.png and icon32.png: the same mark with the marker left out, drawn on
+       whole pixels so it stays sharp in the toolbar. -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7377f6"/>
+      <stop offset="1" stop-color="#3f37c9"/>
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="30" height="30" rx="8" fill="url(#tile)"/>
+  <rect x="7" y="7" width="14" height="4" rx="2" fill="#fff"/>
+  <path d="M6 13h22l-2 6H4z" fill="#fde047" stroke="#fde047" stroke-width="2" stroke-linejoin="round"/>
+  <rect x="7" y="21" width="10" height="4" rx="2" fill="#fff"/>
+</svg>
